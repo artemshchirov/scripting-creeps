@@ -1,4 +1,5 @@
 export const Game: {
+  [x: string]: any;
   creeps: { [name: string]: any };
   rooms: any;
   spawns: any;

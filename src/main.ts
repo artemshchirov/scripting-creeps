@@ -1,43 +1,116 @@
+import { roleBuilder, roleHarvester, roleUpgrader } from "./creep/roles";
 import { ErrorMapper } from "utils/ErrorMapper";
 
-declare global {
-  /*
-    Example types, expand on these or remove them and add your own.
-    Note: Values, properties defined here do no fully *exist* by this type definiton alone.
-          You must also give them an implemention if you would like to use them. (ex. actually setting a `role` property in a Creeps memory)
-
-    Types added in this `global` block are in an ambient, global context. This is needed because `main.ts` is a module file (uses import or export).
-    Interfaces matching on name from @types/screeps will be merged. This is how you can extend the 'built-in' interfaces from @types/screeps.
-  */
-  // Memory extension samples
-  interface Memory {
-    uuid: number;
-    log: any;
-  }
-
-  interface CreepMemory {
-    role: string;
-    room: string;
-    working: boolean;
-  }
-
-  // Syntax for adding proprties to `global` (ex "global.log")
-  namespace NodeJS {
-    interface Global {
-      log: any;
-    }
-  }
+enum CreepRole {
+  Harvester = "harvester",
+  Builder = "builder",
+  Upgrader = "upgrader"
 }
 
-// When compiling TS to JS and bundling with rollup, the line numbers and file names in error messages change
-// This utility uses source maps to get the line numbers and file names of the original, TS source code
-export const loop = ErrorMapper.wrapLoop(() => {
-  console.log(`Current game tick is ${Game.time}`);
+enum Spawns {
+  Aspire = "Aspire"
+}
 
+const HARVESTER_TIER_1 = [WORK, CARRY, MOVE];
+const HARVESTER_TIER_2 = [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE];
+
+const respawnCreeps = (
+  creeps: Creep[],
+  creepRole: string,
+  count: number,
+  bodyParts: BodyPartConstant[] = HARVESTER_TIER_2
+) => {
+  if (creeps.length < count) {
+    const newName = `${creepRole}${Game.time}`;
+    console.log(`Spawning new ${creepRole}: ` + newName);
+    Game.spawns[Spawns.Aspire].spawnCreep(bodyParts, newName, { memory: { role: creepRole } });
+  }
+};
+
+const manageCreeps = () => {
+  const harvesters: Creep[] = [];
+  const upgraders: Creep[] = [];
+  const builders: Creep[] = [];
+
+  for (const creepName in Game.creeps) {
+    const creep = Game.creeps[creepName];
+    switch (creep.memory.role) {
+      case CreepRole.Harvester:
+        harvesters.push(creep);
+        roleHarvester.run(creep);
+        break;
+      case CreepRole.Upgrader:
+        upgraders.push(creep);
+        roleUpgrader.run(creep);
+        break;
+      case CreepRole.Builder:
+        builders.push(creep);
+        roleBuilder.run(creep);
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (!Game.spawns[Spawns.Aspire].spawning) {
+    respawnCreeps(harvesters, CreepRole.Harvester, 2);
+    respawnCreeps(upgraders, CreepRole.Upgrader, 2);
+    respawnCreeps(builders, CreepRole.Builder, 2);
+  }
+
+  console.log("Harvesters: ", harvesters.length);
+  console.log("Upgraders: ", upgraders.length);
+  console.log("Builders: ", builders.length);
+};
+
+const cleanMemory = () => {
   // Automatically delete memory of missing creeps
   for (const name in Memory.creeps) {
     if (!(name in Game.creeps)) {
       delete Memory.creeps[name];
     }
   }
+};
+
+const logGameInfo = () => {
+  console.log(`Current game tick is ${Game.time}`);
+  for (const name in Game.rooms) console.log(`Room ${name} has ${Game.rooms[name].energyAvailable} energy`);
+};
+
+const manageTowers = () => {
+  const towers = Game.spawns[Spawns.Aspire].room.find(FIND_STRUCTURES, {
+    filter: structure => structure.structureType === STRUCTURE_TOWER
+  });
+
+  for (const tower of towers) {
+    if (tower.structureType === STRUCTURE_TOWER) {
+      const damagedStructures = tower.room.find(FIND_STRUCTURES, {
+        filter: structure => structure.hits < structure.hitsMax
+      });
+      damagedStructures.sort((a, b) => a.hits - b.hits);
+      const closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+      if (closestHostile) tower.attack(closestHostile);
+      else if (damagedStructures.length > 0) tower.repair(damagedStructures[0]);
+    }
+  }
+};
+
+const drawSpawnStatus = () => {
+  if (Game.spawns[Spawns.Aspire].spawning) {
+    const spawningCreep = Game.creeps[Game.spawns[Spawns.Aspire].spawning.name];
+    Game.spawns[Spawns.Aspire].room.visual.text(
+      `🛠️${spawningCreep.memory.role || "creep"}`,
+      Game.spawns[Spawns.Aspire].pos.x + 1,
+      Game.spawns[Spawns.Aspire].pos.y,
+      { align: "left", opacity: 0.8 }
+    );
+  }
+};
+
+export const loop = ErrorMapper.wrapLoop(() => {
+  logGameInfo();
+  manageCreeps();
+  drawSpawnStatus();
+  manageTowers();
+  cleanMemory();
 });

@@ -1,7 +1,7 @@
 {
-  "name": "screeps-typescript-starter",
+  "name": "scripting-creeps",
   "version": "3.0.0",
-  "description": "",
+  "description": "Scripts for Screeps - an open-source game for programmers, wherein the core mechanic is programming your units' AI.",
   "main": "index.js",
   "//": "If you add or change the names of destinations in screeps.json, make sure you update these scripts to reflect the changes",
   "scripts": {
@@ -40,6 +40,7 @@
     "@types/mocha": "^5.2.5",
     "@types/node": "^13.13.1",
     "@types/screeps": "^3.2.3",
+    "@types/screeps-profiler": "^1.2.2",
     "@types/sinon": "^5.0.5",
     "@types/sinon-chai": "^3.2.0",
     "@typescript-eslint/eslint-plugin": "^4.29.1",
