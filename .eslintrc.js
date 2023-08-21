@@ -29,6 +29,7 @@ module.exports = {
     }
   },
   rules: {
+    "@typescript-eslint/explicit-module-boundary-types": "off",
     "prettier/prettier": "warn",
     "@typescript-eslint/array-type": "error",
     "@typescript-eslint/consistent-type-assertions": "error",

@@ -1,25 +1,19 @@
-import { roleBuilder, roleHarvester, roleUpgrader } from "./creep/roles";
-import { ErrorMapper } from "utils/ErrorMapper";
+import { roleBuilder, roleHarvester, roleLongDistanceHarvester, roleUpgrader } from "./creep/roles";
+import { ErrorMapper } from "utils";
+import { manageTowers } from "defense";
 
 enum CreepRole {
   Harvester = "harvester",
+  LongDistanceHarvester = "longDistanceHarvester",
   Builder = "builder",
   Upgrader = "upgrader"
 }
 
-enum Spawns {
+export enum Spawns {
   Aspire = "Aspire"
 }
 
-const HARVESTER_TIER_1 = [WORK, CARRY, MOVE];
-const HARVESTER_TIER_2 = [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE];
-
-const respawnCreeps = (
-  creeps: Creep[],
-  creepRole: string,
-  count: number,
-  bodyParts: BodyPartConstant[] = HARVESTER_TIER_2
-) => {
+const respawnCreeps = (creeps: Creep[], creepRole: string, count: number, bodyParts: BodyPartConstant[]) => {
   if (creeps.length < count) {
     const newName = `${creepRole}${Game.time}`;
     console.log(`Spawning new ${creepRole}: ` + newName);
@@ -29,6 +23,7 @@ const respawnCreeps = (
 
 const manageCreeps = () => {
   const harvesters: Creep[] = [];
+  const longDistanceHarvesters: Creep[] = [];
   const upgraders: Creep[] = [];
   const builders: Creep[] = [];
 
@@ -38,6 +33,10 @@ const manageCreeps = () => {
       case CreepRole.Harvester:
         harvesters.push(creep);
         roleHarvester.run(creep);
+        break;
+      case CreepRole.LongDistanceHarvester:
+        longDistanceHarvesters.push(creep);
+        roleLongDistanceHarvester.run(creep);
         break;
       case CreepRole.Upgrader:
         upgraders.push(creep);
@@ -51,11 +50,21 @@ const manageCreeps = () => {
         break;
     }
   }
+  const HARVESTER_TIER_1 = [WORK, CARRY, MOVE];
+  const HARVESTER_TIER_2 = [WORK, WORK, CARRY, MOVE, MOVE];
+
+  const roomEnergy = Game.rooms.W27N34.energyAvailable;
+  const TIER_2_THRESHOLD = HARVESTER_TIER_2.length * 100;
+  const tierToUse = roomEnergy >= TIER_2_THRESHOLD ? HARVESTER_TIER_2 : HARVESTER_TIER_1;
 
   if (!Game.spawns[Spawns.Aspire].spawning) {
-    respawnCreeps(harvesters, CreepRole.Harvester, 2);
-    respawnCreeps(upgraders, CreepRole.Upgrader, 2);
-    respawnCreeps(builders, CreepRole.Builder, 2);
+    if (harvesters.length > 2) {
+      respawnCreeps(upgraders, CreepRole.Upgrader, 1, HARVESTER_TIER_1);
+      respawnCreeps(builders, CreepRole.Builder, 5, tierToUse);
+      respawnCreeps(longDistanceHarvesters, CreepRole.LongDistanceHarvester, 10, tierToUse);
+    } else {
+      respawnCreeps(harvesters, CreepRole.Harvester, 3, tierToUse);
+    }
   }
 
   console.log("Harvesters: ", harvesters.length);
@@ -75,24 +84,6 @@ const cleanMemory = () => {
 const logGameInfo = () => {
   console.log(`Current game tick is ${Game.time}`);
   for (const name in Game.rooms) console.log(`Room ${name} has ${Game.rooms[name].energyAvailable} energy`);
-};
-
-const manageTowers = () => {
-  const towers = Game.spawns[Spawns.Aspire].room.find(FIND_STRUCTURES, {
-    filter: structure => structure.structureType === STRUCTURE_TOWER
-  });
-
-  for (const tower of towers) {
-    if (tower.structureType === STRUCTURE_TOWER) {
-      const damagedStructures = tower.room.find(FIND_STRUCTURES, {
-        filter: structure => structure.hits < structure.hitsMax
-      });
-      damagedStructures.sort((a, b) => a.hits - b.hits);
-      const closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
-      if (closestHostile) tower.attack(closestHostile);
-      else if (damagedStructures.length > 0) tower.repair(damagedStructures[0]);
-    }
-  }
 };
 
 const drawSpawnStatus = () => {

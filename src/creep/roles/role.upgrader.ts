@@ -1,3 +1,11 @@
+import { getContainers, getEnergyFromClosestContainer, harvestSource } from "./utils";
+
+const upgradeController = (creep: Creep, controller: StructureController) => {
+  if (creep.upgradeController(controller) === ERR_NOT_IN_RANGE) {
+    creep.moveTo(controller, { visualizePathStyle: { stroke: "#ffffff" } });
+  }
+};
+
 export const roleUpgrader = {
   run: (creep: Creep) => {
     if (creep.memory.upgrading && creep.store[RESOURCE_ENERGY] === 0) {
@@ -10,13 +18,15 @@ export const roleUpgrader = {
     }
 
     if (creep.room.controller && creep.memory.upgrading) {
-      if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
-        creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: "#ffffff" } });
-      }
+      upgradeController(creep, creep.room.controller);
     } else {
-      const sources = creep.room.find(FIND_SOURCES);
-      if (creep.harvest(sources[0]) === ERR_NOT_IN_RANGE) {
-        creep.moveTo(sources[0], { visualizePathStyle: { stroke: "#ffaa00" } });
+      const containers = getContainers(creep);
+      if (containers.length > 0) {
+        // creep.say("🔄📦");
+        getEnergyFromClosestContainer(creep, containers);
+      } else {
+        // creep.say("🔄🟨");
+        harvestSource(creep);
       }
     }
   }

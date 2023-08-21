@@ -18,11 +18,20 @@ const getTargets = (creep: Creep) => {
   return destinations.concat(containers);
 };
 
-export const roleHarvester = {
+export const roleLongDistanceHarvester = {
   run: (creep: Creep) => {
     if (creep.store.getFreeCapacity() > 0) {
-      harvestSource(creep);
-      // creep.say("🔄 harvest");
+      const droppedEnergy = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
+        filter: resource => resource.resourceType === RESOURCE_ENERGY
+      });
+      if (droppedEnergy) {
+        if (creep.pickup(droppedEnergy) === ERR_NOT_IN_RANGE) {
+          creep.moveTo(droppedEnergy);
+        }
+      } else {
+        harvestSource(creep, 1);
+        // creep.say("🔄 harvest");
+      }
     } else {
       const targets = getTargets(creep);
       if (targets.length > 0) {
